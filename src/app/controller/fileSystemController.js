@@ -21,21 +21,21 @@ const log = getLog('fileSystemController');
 const root = path.parse(process.cwd()).root;
 
 export const getList = async (req, res) => {
-	const { parent } = req.query;
+	const { pathList: pathOrPathList } = req.query;
 	try {
-		let list = fs.readdirSync(parent).map(file => {
+		const path = [].concat(pathOrPathList).join('/');
+		let list = fs.readdirSync(path).map(file => {
 
 			let isDirectory;
 
 			try {
-				isDirectory = fs.lstatSync(parent + '/' + file).isDirectory();
+				isDirectory = fs.lstatSync(path + '/' + file).isDirectory();
 			} catch (exception) {
 				isDirectory = null
 			}
 
 			return {
 				name: file,
-				path: parent + '/' + file,
 				isDirectory
 			};
 		}).sort((fileA, fileB) => {
