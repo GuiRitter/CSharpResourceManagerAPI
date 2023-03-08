@@ -8,6 +8,7 @@ import {
 } from '../helper/status';
 
 import { equalsComparator, listMerge } from '../util/data';
+import { isFolderOrCSharpResource } from '../util/file';
 import { byName, getName } from '../util/resource';
 
 import { getLog } from '../util/log';
@@ -87,7 +88,7 @@ export const getList = async (req, res) => {
 				name: file,
 				isDirectory
 			};
-		}).sort((fileA, fileB) => {
+		}).filter(isFolderOrCSharpResource).sort((fileA, fileB) => {
 			if ((fileA.isDirectory) && (!fileB.isDirectory)) {
 				return -1;
 			} else if ((!fileA.isDirectory) && (fileB.isDirectory)) {
@@ -163,4 +164,3 @@ export const readFile = async (req, res) => {
 		return res.status(status.error).send(errorMessage);
 	}
 };
-
