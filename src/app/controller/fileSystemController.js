@@ -1,6 +1,6 @@
-import {
-	isNonEmptyString
-} from '../helper/validation';
+// import {
+// 	isNonEmptyString
+// } from '../helper/validation';
 
 import {
 	errorMessage,
@@ -11,20 +11,22 @@ import { equalsComparator, listMerge } from '../util/data';
 import { isFolderOrCSharpResource } from '../util/file';
 import { byName, getName } from '../util/resource';
 
+import {
+	closeTagRegex,
+	commentRegex,
+	englishRegex,
+	fileExtensionRegex,
+	nameRegex,
+	startTagRegex,
+	valueRegex
+} from '../util/file';
+
 import { getLog } from '../util/log';
 
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const url = require('url');
-
-const fileExtensionRegex = /(.+).resx$/im;
-const englishRegex = /(.+).en-US.resx$/im;
-const startTagRegex = /<\/xsd:schema>/im;
-const nameRegex = /<data name="(.+?)"/im;
-const valueRegex = /<value>(.+?)<\/value>/im;
-const commentRegex = /<comment>(.+?)<\/comment>/im;
-const closeTagRegex = /<\/data>/im;
 
 const log = getLog('fileSystemController');
 
@@ -138,9 +140,6 @@ export const readFile = async (req, res) => {
 	log('readFile', { pathList });
 	try {
 		fileName = JSON.parse(fileName);
-		if (!fileExtensionRegex.test(fileName)) {
-			return res.status(status.bad).send('Selected file is not a C♯ resource file.');
-		}
 		const neutralFileName = englishRegex.test(fileName) ? `${englishRegex.exec(fileName)[1]}.resx` : fileName;
 		const englishFileName = englishRegex.test(fileName) ? fileName : `${fileExtensionRegex.exec(fileName)[1]}.en-US.resx`;
 		pathList = JSON.parse(pathList);
@@ -160,6 +159,19 @@ export const readFile = async (req, res) => {
 		return res.status(status.success).send(mergedEntryList);
 	} catch (error) {
 		log('readFile', { error });
+		errorMessage.error = 'Unknown error.';
+		return res.status(status.error).send(errorMessage);
+	}
+};
+
+export const saveFile = async (req, res) => {
+	let { fileName } = req.query;
+	const { pathList, entryList } = req.body;
+	log('saveFile', { pathList, fileName, entryList });
+	try {
+		return res.status(status.success).send();
+	} catch (error) {
+		log('saveFile', { error });
 		errorMessage.error = 'Unknown error.';
 		return res.status(status.error).send(errorMessage);
 	}
