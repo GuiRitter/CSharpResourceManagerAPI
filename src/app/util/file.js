@@ -10,6 +10,10 @@ export const isFolderOrCSharpResource = file => file.isDirectory || file.name.en
 
 export const nameRegex = /<data name="(.+?)"/im;
 
+export const resHeaderStartRegex = /<resheader /im;
+
+export const resHeaderCloseRegex = /<\/resheader>/im;
+
 export const startTagRegex = /<\/xsd:schema>/im;
 
 export const valueRegex = /<value>(.+?)<\/value>/im;

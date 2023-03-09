@@ -17,6 +17,8 @@ import {
 	englishRegex,
 	fileExtensionRegex,
 	nameRegex,
+	resHeaderCloseRegex,
+	resHeaderStartRegex,
 	startTagRegex,
 	valueRegex
 } from '../util/file';
@@ -38,17 +40,28 @@ const getEntryListFromFile = fileContent => {
 	const lineList = fileContent.split('\n');
 	return lineList.reduce((previousObject, line) => {
 		let isEnabled = previousObject.isEnabled;
+		let isResHeader = previousObject.isResHeader;
+		let prefixList = previousObject.prefixList;
 		let entryList = previousObject.entryList;
 		let name = previousObject.name;
 		let value = previousObject.value;
 		let comment = previousObject.comment;
 		if (isEnabled) {
+			if (isResHeader) {
+				prefixList = prefixList.concat(line);
+			}
+			if (resHeaderStartRegex.test(line)) {
+				isResHeader = true;
+				prefixList = prefixList.concat(line);
+			} else if (resHeaderCloseRegex.test(line)) {
+				isResHeader = false;
+			}
 			const nameMatch = nameRegex.exec(line);
 			const valueMatch = valueRegex.exec(line);
 			const commentMatch = commentRegex.exec(line);
 			const isTagClosed = closeTagRegex.test(line);
 			if (isTagClosed) {
-				entryList = previousObject.entryList.concat({ name, value, comment });
+				entryList = entryList.concat({ name, value, comment });
 				name = null;
 				value = null;
 				comment = null;
@@ -59,15 +72,18 @@ const getEntryListFromFile = fileContent => {
 			}
 		} else {
 			isEnabled = startTagRegex.test(line);
+			prefixList = prefixList.concat(line);
 		}
-		return { isEnabled, entryList, name, value, comment };
+		return { isEnabled, isResHeader, prefixList, entryList, name, value, comment };
 	}, {
 		isEnabled: false,
+		prefixList: [],
+		isResHeader: false,
 		entryList: [],
 		name: null,
 		value: null,
 		comment: null
-	}).entryList;
+	});
 };
 
 export const getList = async (req, res) => {
@@ -137,7 +153,7 @@ const mergeEntryList = (nameList, mergedEntryList, specificEntryList, specificNa
 
 export const readFile = async (req, res) => {
 	let { pathList, fileName } = req.query;
-	log('readFile', { pathList });
+	log('readFile', { pathList, fileName });
 	try {
 		fileName = JSON.parse(fileName);
 		const neutralFileName = englishRegex.test(fileName) ? `${englishRegex.exec(fileName)[1]}.resx` : fileName;
@@ -148,15 +164,15 @@ export const readFile = async (req, res) => {
 		log('readFile', { neutralPath, englishPath });
 		const neutralFile = normalizeLineBreak(fs.readFileSync(neutralPath, 'utf8'));
 		const englishFile = normalizeLineBreak(fs.readFileSync(englishPath, 'utf8'));
-		const neutralEntryList = getEntryListFromFile(neutralFile);
-		const englishEntryList = getEntryListFromFile(englishFile);
+		const { entryList: neutralEntryList, prefixList } = getEntryListFromFile(neutralFile);
+		const { entryList: englishEntryList } = getEntryListFromFile(englishFile);
 		const neutralNameList = neutralEntryList.map(getName);
 		const englishNameList = englishEntryList.map(getName);
 		const mergedNameList = listMerge(neutralNameList, englishNameList, equalsComparator);
 		let mergedEntryList = mergeEntryList(mergedNameList, [], neutralEntryList, '');
 		mergedEntryList = mergeEntryList(mergedNameList, mergedEntryList, englishEntryList, 'en-US');
 		// log('readFile', { mergedEntryList });
-		return res.status(status.success).send(mergedEntryList);
+		return res.status(status.success).send({ prefixList, mergedEntryList });
 	} catch (error) {
 		log('readFile', { error });
 		errorMessage.error = 'Unknown error.';
