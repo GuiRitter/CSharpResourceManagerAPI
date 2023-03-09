@@ -7,6 +7,8 @@ import {
 	status
 } from '../helper/status';
 
+import { LANGUAGE } from '../constant/resource';
+
 import { equalsComparator, listMerge } from '../util/data';
 import { isFolderOrCSharpResource } from '../util/file';
 import { byName, getName } from '../util/resource';
@@ -34,7 +36,9 @@ const log = getLog('fileSystemController');
 
 const root = path.parse(process.cwd()).root;
 
-const normalizeLineBreak = string => string.replace('\r\n', '\n').replace('\r', '\n');
+const entryListToString = (entryList, language) => entryList.map(entry => 
+	`  <data name="${entry.name}" xml:space="preserve">\n    <value>${entry[language].value || ''}</value>\n${entry[language].comment ? `    <comment>${entry[language].comment}</comment>\n` : ''}  </data>`
+).join('\n') + '\n';
 
 const getEntryListFromFile = fileContent => {
 	const lineList = fileContent.split('\n');
@@ -55,6 +59,9 @@ const getEntryListFromFile = fileContent => {
 				prefixList = prefixList.concat(line);
 			} else if (resHeaderCloseRegex.test(line)) {
 				isResHeader = false;
+				name = null;
+				value = null;
+				comment = null;
 			}
 			const nameMatch = nameRegex.exec(line);
 			const valueMatch = valueRegex.exec(line);
@@ -151,13 +158,15 @@ const mergeEntryList = (nameList, mergedEntryList, specificEntryList, specificNa
 	return entry;
 });
 
+const normalizeLineBreak = string => string.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+
 export const readFile = async (req, res) => {
 	let { pathList, fileName } = req.query;
 	log('readFile', { pathList, fileName });
 	try {
 		fileName = JSON.parse(fileName);
 		const neutralFileName = englishRegex.test(fileName) ? `${englishRegex.exec(fileName)[1]}.resx` : fileName;
-		const englishFileName = englishRegex.test(fileName) ? fileName : `${fileExtensionRegex.exec(fileName)[1]}.en-US.resx`;
+		const englishFileName = englishRegex.test(fileName) ? fileName : `${fileExtensionRegex.exec(fileName)[1]}.${LANGUAGE.ENGLISH}.resx`;
 		pathList = JSON.parse(pathList);
 		const neutralPath = pathList.concat(neutralFileName).join('/');
 		const englishPath = pathList.concat(englishFileName).join('/');
@@ -169,8 +178,8 @@ export const readFile = async (req, res) => {
 		const neutralNameList = neutralEntryList.map(getName);
 		const englishNameList = englishEntryList.map(getName);
 		const mergedNameList = listMerge(neutralNameList, englishNameList, equalsComparator);
-		let mergedEntryList = mergeEntryList(mergedNameList, [], neutralEntryList, '');
-		mergedEntryList = mergeEntryList(mergedNameList, mergedEntryList, englishEntryList, 'en-US');
+		let mergedEntryList = mergeEntryList(mergedNameList, [], neutralEntryList, LANGUAGE.NEUTRAL);
+		mergedEntryList = mergeEntryList(mergedNameList, mergedEntryList, englishEntryList, LANGUAGE.ENGLISH);
 		// log('readFile', { mergedEntryList });
 		return res.status(status.success).send({ prefixList, mergedEntryList });
 	} catch (error) {
@@ -182,9 +191,23 @@ export const readFile = async (req, res) => {
 
 export const saveFile = async (req, res) => {
 	let { fileName } = req.query;
-	const { pathList, entryList } = req.body;
-	log('saveFile', { pathList, fileName, entryList });
+	const { pathList, entryList, prefixList } = req.body;
+	log('saveFile', { pathList, fileName, entryList: (entryList || []).length, prefixList: (prefixList || []).length });
 	try {
+		let neutralFile = prefixList.join('\n') + '\n';
+		let englishFile = prefixList.join('\n') + '\n';
+		neutralFile += entryListToString(entryList, LANGUAGE.NEUTRAL);
+		englishFile += entryListToString(entryList, LANGUAGE.ENGLISH);
+		neutralFile += '</root>';
+		englishFile += '</root>';
+		fileName = JSON.parse(fileName);
+		const neutralFileName = englishRegex.test(fileName) ? `${englishRegex.exec(fileName)[1]}.resx` : fileName;
+		const englishFileName = englishRegex.test(fileName) ? fileName : `${fileExtensionRegex.exec(fileName)[1]}.${LANGUAGE.ENGLISH}.resx`;
+		const neutralPath = pathList.concat(neutralFileName).join('/');
+		const englishPath = pathList.concat(englishFileName).join('/');
+		log('saveFile', { neutralPath, englishPath });
+		fs.writeFileSync(neutralPath, neutralFile);
+		fs.writeFileSync(englishPath, englishFile);
 		return res.status(status.success).send();
 	} catch (error) {
 		log('saveFile', { error });

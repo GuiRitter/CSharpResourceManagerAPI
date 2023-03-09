@@ -4,6 +4,10 @@ import {
 
 import { fileExtensionRegex } from '../util/file';
 
+import { getLog } from '../util/log';
+
+const log = getLog('verifyFileExtension');
+
 /**
   * Verify Token
   * @param {object} req 

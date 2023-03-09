@@ -1,6 +1,6 @@
 {
 	"name": "c_sharp_resource_manager_api",
-	"version": "0.3.2",
+	"version": "1.0.0",
 	"description": "",
 	"main": "index.js",
 	"scripts": {
